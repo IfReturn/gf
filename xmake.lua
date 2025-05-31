@@ -3,12 +3,6 @@ add_rules("mode.debug", "mode.release")
 target("gf")
     set_kind("binary")
     add_files("src/*.cpp")
-    remove_files("src/test.cpp")
-    add_links("jsoncpp","curl","readline")
-
-target("test")
-    set_kind("binary")
-    add_files("src/test.cpp")
     add_links("jsoncpp","curl","readline")
 
 --
