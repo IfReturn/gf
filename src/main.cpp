@@ -13,17 +13,22 @@ int main(int argc,char** argv){
     if (parser.has_option("--help")|| parser.has_option("-h")) {
         std::cout << "Usage: program [options] [args]\n";
         std::cout << "Options:\n";
-        std::cout << "  --help          Show this help message\n";
-        std::cout << "  --version       Show version information\n";
+        std::cout << "  -h|--help          Show this help message\n";
+        std::cout << "  -v|--version       Show version information\n";
+        std::cout << "  -s|--stream        Enable streaming mode\n";
         return 0;
     }
+
     if (parser.has_option("--version")||parser.has_option("-v")) {
         std::cout << "Version 1.0.0\n";
         return 0;
     }
+    bool is_stream = parser.has_option("--stream") || parser.has_option("-s");
+
     for (const auto& arg : positional_args) {
         std::cout << "Positional argument: " << arg << "\n";
     }
+
     rl_initialize(); // 初始化readline库
     // 从环境变量获取API密钥
     std::string api_key = getenv("DEEPSEEK_API_KEY");
@@ -31,17 +36,17 @@ int main(int argc,char** argv){
         std::cerr << "Error: DEEPSEEK_API_KEY environment variable not set!" << std::endl;
         return 1;
     }
-    deepseek ds(api_key);
+    deepseek ds(api_key, is_stream);
     while(true){
         std::string prompt = readline("Ask: ");
+        std::cout << "\n[DeepSeek回答]\n"  << std::endl;
         if (prompt.empty()) {
             std::cout << "Exiting..." << std::endl;
             break; // 如果输入为空，退出循环
         }
         // 发送请求并获取响应
-        // 输出结果
-            std::string answer = ds.ask("deepseek-chat", prompt);
-            std::cout << "\n[DeepSeek回答]\n" << answer << std::endl;
+        ds.ask("deepseek-chat", prompt);
+        std::cout << "\n";
     }
     return 0;
 }
