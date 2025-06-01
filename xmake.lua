@@ -1,9 +1,10 @@
 add_rules("mode.debug", "mode.release")
-
+add_requires("jsoncpp", "libcurl", "readline")
 target("gf")
+    set_languages("c++17")
     set_kind("binary")
     add_files("src/*.cpp")
-    add_links("jsoncpp","curl","readline")
+    add_packages("jsoncpp", "libcurl", "readline")
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
