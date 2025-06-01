@@ -44,6 +44,13 @@ int main(int argc,char** argv){
         return 1;
     }
     deepseek ds(api_key, is_stream);
+    // 设置系统提示
+    std::string sysprompt = readline("Waiting for system prompt, empty for default: ");
+    if (!sysprompt.empty()) {
+        ds.set_system_prompt(sysprompt);
+    } else {
+        ds.set_system_prompt("You are a helpful assistant.");
+    }
     while(true){
         std::string prompt = readline("Ask: ");
         std::cout << "\n[DeepSeek回答]\n"  << std::endl;
