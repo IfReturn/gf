@@ -164,3 +164,19 @@ std::string deepseek::ask(const std::string &model, const std::string &question,
         messages.clear(); // Clear messages for single-turn conversations  
     return response;
 }
+bool deepseek::set_system_prompt(const std::string &prompt) noexcept {
+  if (prompt.empty()) {
+    return false; // Invalid system prompt
+  }
+  Json::Value system_message;
+  // clear previous system message if exists
+  for (Json::Value::ArrayIndex i = 0; i < this->messages.size(); ++i) {
+    if (this->messages[i]["role"].asString() == "system") {
+      this->messages.removeIndex(i, nullptr);
+    }
+  }
+  system_message["role"] = "system";
+  system_message["content"] = prompt;
+  this->messages.insert(0, system_message); // Insert at the beginning
+  return true;
+}

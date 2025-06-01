@@ -53,6 +53,23 @@ public:
    * interactions.
      * @return The response from the DeepSeek API as a string.
      */
-    std::string ask(const std::string& model, const std::string& question,bool multi_turn = true);
-    static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* data);
+  std::string ask(const std::string &model, const std::string &question,
+                  bool multi_turn = true);
+
+  /**
+   * @brief set the system prompt for the conversation.
+   * @param prompt The system prompt to set.
+   * @return true if the system prompt was set successfully, false if the prompt
+   * is invalid.
+   */
+  bool set_system_prompt(const std::string &prompt) noexcept;
+
+  /**
+   * @brief Extracts the content from a streaming response line.
+   * @param line The line from the streaming response.
+   * @note the function will output the content to stdout if in stream mode.
+   * @return The extracted content as a string.
+   */
+  static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
+                              std::string *data);
 };
