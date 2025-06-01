@@ -13,22 +13,29 @@ int main(int argc,char** argv){
     if (parser.has_option("--help")|| parser.has_option("-h")) {
         std::cout << "Usage: program [options] [args]\n";
         std::cout << "Options:\n";
-        std::cout << "  -h|--help          Show this help message\n";
-        std::cout << "  -v|--version       Show version information\n";
-        std::cout << "  -s|--stream        Enable streaming mode\n";
+        std::cout << "  -h|--help                   Show this help message\n";
+        std::cout << "  -v|--version                Show version information\n";
+        std::cout << "  -s|--stream [on|off]        Enable streaming mode or not,default to on\n";
         return 0;
     }
 
-    if (parser.has_option("--version")||parser.has_option("-v")) {
+    if (parser.has_option("--version")|| parser.has_option("-v")) {
         std::cout << "Version 1.0.0\n";
         return 0;
     }
-    bool is_stream = parser.has_option("--stream") || parser.has_option("-s");
-
-    for (const auto& arg : positional_args) {
-        std::cout << "Positional argument: " << arg << "\n";
+    bool is_stream = true; // 默认启用流式输出
+    if(parser.has_option("--stream") || parser.has_option("-s")) {
+        auto stream_value = parser.get_option_value("--stream");
+        if (stream_value == "off" || stream_value == "false") {
+            is_stream = false; // 禁用流式输出
+        } else if (stream_value != "on" && stream_value != "true") {
+            std::cerr << "Invalid value for --stream. Use 'on' or 'off'.\n";
+            return 1;
+        }
     }
-
+    // for (const auto& arg : positional_args) {
+    //     std::cout << "Positional argument: " << arg << "\n";
+    // }
     rl_initialize(); // 初始化readline库
     // 从环境变量获取API密钥
     std::string api_key = getenv("DEEPSEEK_API_KEY");
