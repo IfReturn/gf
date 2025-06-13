@@ -3,7 +3,15 @@
 #include <json/json.h>
 #include <json/value.h>
 #include <string>
+#include <atomic>
 #include "history.hpp"
+
+// 全局中断标志声明
+extern std::atomic<bool> g_interrupt_stream;
+
+// 全局对话状态声明（用于信号处理时保存未完成的对话）
+extern std::string g_current_assistant_response;
+extern std::atomic<bool> g_conversation_in_progress;
 
 class deepseek {
 private:
@@ -12,6 +20,7 @@ private:
   bool is_stream;
   std::string current_system_prompt;
   HistoryManager* history_manager; // 历史记录管理器指针
+  std::string current_session_id; // 当前会话ID
 
 public:
   /**
@@ -82,6 +91,36 @@ public:
   std::string get_system_prompt() const;
 
   /**
+   * @brief Start a new conversation session
+   * @return New session ID
+   */
+  std::string start_new_session();
+
+  /**
+   * @brief Set current session for multi-turn conversation
+   * @param session_id Session ID to continue
+   */
+  void set_current_session(const std::string& session_id);
+
+  /**
+   * @brief Get current session ID
+   * @return Current session ID
+   */
+  std::string get_current_session_id() const;
+
+  /**
+   * @brief Load conversation context from session history
+   * @param session_id Session ID to load
+   * @param max_turns Maximum number of turns to load (0 = all)
+   */
+  void load_session_context(const std::string& session_id, int max_turns = 0);
+
+  /**
+   * @brief Clear current conversation context
+   */
+  void clear_conversation_context();
+
+  /**
    * @brief Extracts the content from a streaming response line.
    * @param line The line from the streaming response.
    * @note the function will output the content to stdout if in stream mode.
@@ -89,4 +128,27 @@ public:
    */
   static size_t WriteCallback(void *contents, size_t size, size_t nmemb,
                               std::string *data);
+  
+  /**
+   * @brief Progress callback for non-streaming requests to check for interruption
+   * @param clientp Client data (unused)
+   * @param dltotal Total download size
+   * @param dlnow Current download size
+   * @param ultotal Total upload size  
+   * @param ulnow Current upload size
+   * @return 0 to continue, non-zero to abort
+   */
+  static int ProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
+                             curl_off_t ultotal, curl_off_t ulnow);
+  
+  /**
+   * @brief Write callback specifically for non-streaming responses
+   * @param contents Data received
+   * @param size Size of each element
+   * @param nmemb Number of elements
+   * @param data String to append data to
+   * @return Number of bytes processed
+   */
+  static size_t WriteCallbackNonStream(void *contents, size_t size, size_t nmemb,
+                                      std::string *data);
 };
