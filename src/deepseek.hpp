@@ -3,21 +3,26 @@
 #include <json/json.h>
 #include <json/value.h>
 #include <string>
+#include "history.hpp"
+
 class deepseek {
 private:
   std::string api_key;
   Json::Value messages{Json::arrayValue};
   bool is_stream;
+  std::string current_system_prompt;
+  HistoryManager* history_manager; // 历史记录管理器指针
 
 public:
   /**
    * @brief constructor for deepseek class
    * @param key API key for authentication
    * @param is_stream Whether to use streaming mode (default is false).
+   * @param hist_manager Pointer to history manager (optional).
    * @throws std::invalid_argument if the API key is empty
    * @note The API key is required for making requests to the DeepSeek API.
    */
-  deepseek(const std::string &key, bool is_stream = false);
+  deepseek(const std::string &key, bool is_stream = false, HistoryManager* hist_manager = nullptr);
   /**
    * @brief Sends a request to the DeepSeek API and returns the response.
    * @param model The model to use for the request.
@@ -63,6 +68,18 @@ public:
    * is invalid.
    */
   bool set_system_prompt(const std::string &prompt) noexcept;
+
+  /**
+   * @brief Set the history manager for this deepseek instance
+   * @param hist_manager Pointer to history manager
+   */
+  void set_history_manager(HistoryManager* hist_manager);
+
+  /**
+   * @brief Get the current system prompt
+   * @return Current system prompt
+   */
+  std::string get_system_prompt() const;
 
   /**
    * @brief Extracts the content from a streaming response line.

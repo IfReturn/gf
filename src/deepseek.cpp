@@ -1,5 +1,6 @@
 #include "deepseek.hpp"
 #include <iostream>
+#include <sstream>
 
 // 辅助函数：尝试从一行data: ... JSON中提取content
 static std::string extract_stream_content(const std::string &line) {
@@ -51,8 +52,8 @@ size_t deepseek::WriteCallback(void *contents, size_t size, size_t nmemb,
   return total_size;
 }
 
-deepseek::deepseek(const std::string &key, bool is_stream)
-    : api_key(key), is_stream(is_stream) {
+deepseek::deepseek(const std::string &key, bool is_stream, HistoryManager* hist_manager)
+    : api_key(key), is_stream(is_stream), history_manager(hist_manager) {
   if (key.empty()) {
     throw std::invalid_argument("API key cannot be empty");
   }
@@ -158,6 +159,12 @@ std::string deepseek::ask(const std::string &model, const std::string &question,
       std::cout << response << std::endl;
     }
   }
+  
+  // 保存到历史记录
+  if (history_manager && !response.empty()) {
+    history_manager->add_entry(question, response, current_system_prompt, model);
+  }
+  
   if (multi_turn && !response.empty())
     add_message("assistant", response); // Store the assistant's response
   else if (!multi_turn)
@@ -168,6 +175,7 @@ bool deepseek::set_system_prompt(const std::string &prompt) noexcept {
   if (prompt.empty()) {
     return false; // Invalid system prompt
   }
+  current_system_prompt = prompt; // 保存当前系统提示
   Json::Value system_message;
   // clear previous system message if exists
   for (Json::Value::ArrayIndex i = 0; i < this->messages.size(); ++i) {
@@ -179,4 +187,12 @@ bool deepseek::set_system_prompt(const std::string &prompt) noexcept {
   system_message["content"] = prompt;
   this->messages.insert(0, system_message); // Insert at the beginning
   return true;
+}
+
+void deepseek::set_history_manager(HistoryManager* hist_manager) {
+  history_manager = hist_manager;
+}
+
+std::string deepseek::get_system_prompt() const {
+  return current_system_prompt;
 }

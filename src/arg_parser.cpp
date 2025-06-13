@@ -9,7 +9,7 @@ void arg_parser::parse(int argc, char** argv) {
         if (is_option(arg)) {
             options.push_back(arg);
             if (i + 1 < argc && !is_option(argv[i + 1])) {
-                options.back() += "=" + extract_option_value(argv[i + 1]);
+                options.back() += "=" + std::string(argv[i + 1]);
                 ++i; // Skip the value
             }
         } else {
@@ -18,7 +18,16 @@ void arg_parser::parse(int argc, char** argv) {
     }
 }
 bool arg_parser::has_option(const std::string& option) const{
-    return std::find(options.begin(), options.end(), option) != options.end();
+    // Check for exact match first
+    if (std::find(options.begin(), options.end(), option) != options.end()) {
+        return true;
+    }
+    // Check for option with value (option=value format)
+    auto it = std::find_if(options.begin(), options.end(),
+                           [&option](const std::string& opt) {
+                               return opt.find(option + "=") == 0;
+                           });
+    return it != options.end();
 }
 std::string arg_parser::get_option_value(const std::string& option) const {
     auto it = std::find_if(options.begin(), options.end(),
