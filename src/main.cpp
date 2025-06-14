@@ -7,6 +7,7 @@
 #include "deepseek.hpp"
 #include "config.hpp"
 #include "history.hpp"
+#include "global_manager.hpp"
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <unistd.h>
@@ -16,24 +17,12 @@
 #include <thread>
 #include <chrono>
 
-// 全局变量用于信号处理
-std::atomic<bool> g_running(true);
-std::atomic<bool> g_interrupt_stream(false);
-HistoryManager* g_history_manager = nullptr;
-Config* g_config = nullptr;
-
-// 全局变量用于跟踪当前对话状态
-std::string g_current_user_input;
-std::string g_current_assistant_response;
-std::string g_current_system_prompt;
-std::string g_current_model;
-std::atomic<bool> g_conversation_in_progress(false);
-
 // 信号处理函数 - 优化被打断时的历史保存
 void signal_handler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
-        g_running = false;
-        g_interrupt_stream = true;
+        GlobalManager& gm = GlobalManager::getInstance();
+        gm.setRunning(false);
+        gm.setInterruptStream(true);
         
         // 静默中断当前操作
         rl_done = 1;
@@ -42,26 +31,9 @@ void signal_handler(int signal) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         
         // 保存未完成的对话
-        if (g_conversation_in_progress.load() && g_history_manager && !g_current_user_input.empty()) {
-            // 如果正在进行对话，保存用户输入和已有的回复（即使是部分回复）
-            std::string response_to_save = g_current_assistant_response.empty() ? 
-                "[对话被中断]" : g_current_assistant_response + " [已中断]";
-            
-            g_history_manager->add_entry_multi_turn(
-                g_current_user_input, 
-                response_to_save, 
-                g_current_system_prompt, 
-                g_current_model
-            );
-        }
+        gm.saveCurrentState();
         
         // 静默保存数据并退出
-        if (g_history_manager) {
-            g_history_manager->save_history();
-        }
-        if (g_config) {
-            g_config->save_config();
-        }
         
         // 安静退出，只显示简单的告别
         std::cout << "\n" << std::endl;
@@ -80,12 +52,12 @@ void setup_readline_signals() {
 char* safe_readline(const char* prompt) {
     char* line = nullptr;
     
-    while (g_running.load()) {
+    while (GlobalManager::getInstance().isRunning()) {
         line = readline(prompt);
         
         // 如果readline返回NULL，可能是因为EOF或信号中断
         if (!line) {
-            if (!g_running.load()) {
+            if (!GlobalManager::getInstance().isRunning()) {
                 // 被信号中断
                 break;
             }
@@ -141,7 +113,7 @@ int main(int argc,char** argv){
     }
     
     // 设置全局配置指针用于信号处理
-    g_config = &config;
+    GlobalManager::getInstance().setConfig(&config);
     
     // 初始化历史记录管理器
     bool enable_history = !parser.has_option("--no-history");
@@ -152,7 +124,7 @@ int main(int argc,char** argv){
             std::cerr << "Warning: Failed to load history, starting with empty history." << std::endl;
         }
         // 设置全局历史记录管理器指针用于信号处理
-        g_history_manager = history_manager;
+        GlobalManager::getInstance().setHistoryManager(history_manager);
     }
     
     // 处理历史记录命令（不需要API密钥）
@@ -327,7 +299,7 @@ int main(int argc,char** argv){
     }
     std::cout << "Stream mode: " << (is_stream ? "enabled" : "disabled") << std::endl;
     std::cout << std::string(50, '-') << std::endl;
-    while(g_running.load()){
+    while(GlobalManager::getInstance().isRunning()){
         char* line = safe_readline("Ask: ");
         
         // 检查是否被信号中断或到达EOF
@@ -395,28 +367,29 @@ int main(int argc,char** argv){
         }
         
         // 检查是否在处理命令时被中断
-        if (!g_running.load()) {
+        if (!GlobalManager::getInstance().isRunning()) {
             break; // 静默退出
         }
         
         // 设置当前对话状态（用于信号处理时保存）
-        g_current_user_input = prompt;
-        g_current_assistant_response = "";
-        g_current_system_prompt = ds.get_system_prompt();
-        g_current_model = config.get_default_model();
-        g_conversation_in_progress = true;
+        GlobalManager& gm = GlobalManager::getInstance();
+        gm.setCurrentUserInput(prompt);
+        gm.setCurrentAssistantResponse("");
+        gm.setCurrentSystemPrompt(ds.get_system_prompt());
+        gm.setCurrentModel(config.get_default_model());
+        gm.setConversationInProgress(true);
         
         std::cout << "\n[DeepSeek回答]\n"  << std::endl;
         // 发送请求并获取响应
         std::string response = ds.ask(config.get_default_model(), prompt);
         
         // 对话完成，清除状态
-        g_conversation_in_progress = false;
-        g_current_user_input = "";
-        g_current_assistant_response = "";
+        gm.setConversationInProgress(false);
+        gm.setCurrentUserInput("");
+        gm.setCurrentAssistantResponse("");
         
         // 检查响应是否因为中断而异常
-        if (!g_running.load() || response.empty()) {
+        if (!GlobalManager::getInstance().isRunning() || response.empty()) {
             break; // 静默退出
         }
         

@@ -1,6 +1,7 @@
 #include "deepseek.hpp"
 #include <iostream>
 #include <sstream>
+#include "global_manager.hpp"
 
 // 辅助函数：尝试从一行data: ... JSON中提取content
 static std::string extract_stream_content(const std::string &line) {
@@ -26,7 +27,7 @@ static std::string extract_stream_content(const std::string &line) {
 size_t deepseek::WriteCallback(void *contents, size_t size, size_t nmemb,
                                std::string *data) {
   // 检查是否需要中断流式传输
-  if (g_interrupt_stream.load()) {
+  if (GlobalManager::getInstance().isInterruptStream()) {
     return 0;
   }
   
@@ -36,10 +37,10 @@ size_t deepseek::WriteCallback(void *contents, size_t size, size_t nmemb,
   size_t pos = 0;
   while (true) {
     // 在处理每一行时也检查中断标志
-    if (g_interrupt_stream.load()) {
+    if (GlobalManager::getInstance().isInterruptStream()) {
       // 保存当前已有的部分响应到全局变量
-      if (g_conversation_in_progress.load()) {
-        g_current_assistant_response = full_content;
+      if (GlobalManager::getInstance().isConversationInProgress()) {
+        GlobalManager::getInstance().setCurrentAssistantResponse(full_content);
       }
       return total_size; // 返回已处理的大小
     }
@@ -54,8 +55,8 @@ size_t deepseek::WriteCallback(void *contents, size_t size, size_t nmemb,
       full_content += content;
       
       // 实时更新全局响应状态（用于信号处理）
-      if (g_conversation_in_progress.load()) {
-        g_current_assistant_response = full_content;
+      if (GlobalManager::getInstance().isConversationInProgress()) {
+        GlobalManager::getInstance().setCurrentAssistantResponse(full_content);
       }
     }
     pos = next + 1;
@@ -75,7 +76,7 @@ size_t deepseek::WriteCallback(void *contents, size_t size, size_t nmemb,
 int deepseek::ProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
                               curl_off_t ultotal, curl_off_t ulnow) {
   // 检查是否需要中断请求
-  if (g_interrupt_stream.load()) {
+  if (GlobalManager::getInstance().isInterruptStream()) {
     return 1; // 返回非零值中断请求
   }
   return 0; // 继续请求
@@ -85,7 +86,7 @@ int deepseek::ProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dln
 size_t deepseek::WriteCallbackNonStream(void *contents, size_t size, size_t nmemb,
                                        std::string *data) {
   // 检查是否需要中断
-  if (g_interrupt_stream.load()) {
+  if (GlobalManager::getInstance().isInterruptStream()) {
     return 0; // 中断传输
   }
   
@@ -160,7 +161,7 @@ std::string deepseek::send_request(const std::string &model,
   }
   
   // 重置中断标志
-  g_interrupt_stream = false;
+  GlobalManager::getInstance().setInterruptStream(false);
 
   // 发起请求
   CURLcode res = curl_easy_perform(curl);
@@ -169,7 +170,7 @@ std::string deepseek::send_request(const std::string &model,
   
   if (res != CURLE_OK) {
     // 检查是否是被中断导致的错误
-    if (g_interrupt_stream.load()) {
+    if (GlobalManager::getInstance().isInterruptStream()) {
       return ""; // 静默返回空响应
     }
     throw std::runtime_error("cURL error: " +
@@ -177,7 +178,7 @@ std::string deepseek::send_request(const std::string &model,
   }
   
   // 检查是否在传输完成后才被中断
-  if (g_interrupt_stream.load() && response_str.empty()) {
+  if (GlobalManager::getInstance().isInterruptStream() && response_str.empty()) {
     return ""; // 静默返回空响应
   }
   return response_str;
@@ -233,7 +234,7 @@ std::string deepseek::ask(const std::string &model, const std::string &question,
     jsonresponse = send_request(model, "user", question);
     
     // 检查是否被中断
-    if (g_interrupt_stream.load() || jsonresponse.empty()) {
+    if (GlobalManager::getInstance().isInterruptStream() || jsonresponse.empty()) {
       std::cout << "\r              \r" << std::flush; // 清除"正在思考中..."
       return ""; // 静默返回空响应
     }

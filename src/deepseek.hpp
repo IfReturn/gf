@@ -5,13 +5,7 @@
 #include <string>
 #include <atomic>
 #include "history.hpp"
-
-// 全局中断标志声明
-extern std::atomic<bool> g_interrupt_stream;
-
-// 全局对话状态声明（用于信号处理时保存未完成的对话）
-extern std::string g_current_assistant_response;
-extern std::atomic<bool> g_conversation_in_progress;
+#include "global_manager.hpp"
 
 class deepseek {
 private:
